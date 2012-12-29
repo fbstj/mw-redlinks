@@ -6,13 +6,13 @@ $wgExtensionCredits['variable'][] = array(
 	'author'		=> 'Joe ST',
 	'version'		=> '0.2',
 	'description'	=> 'Counts the number of wanted articles',
-	'url'			=> 'http://coppermind.net/'
+	'url'			=> 'https://github.com/FallingBullets/mw-redlinks'
 );
 
 $wgExtensionMessagesFiles['RedLinksMagic'] = dirname(__FILE__) . '/RedLinks.i18n.magic.php';
  
-$wgHooks['ParserGetVariableValueSwitch'][] = 'wfMyAssignAValue';
-function wfMyAssignAValue( &$parser, &$cache, &$magicWordId, &$ret ) {
+$wgHooks['ParserGetVariableValueSwitch'][] = 'CountWantedPages';
+function CountWantedPages( &$parser, &$cache, &$magicWordId, &$ret ) {
 	if ( "__RLK" != $magicWordId )
 		return false;
 	$dbr = wfGetDB( DB_SLAVE );
@@ -20,14 +20,13 @@ function wfMyAssignAValue( &$parser, &$cache, &$magicWordId, &$ret ) {
 	/*
 SELECT pl_namespace AS namespace, COUNT( * ) AS count
 FROM mw_pagelinks
-LEFT JOIN mw_page ON pl_namespace = page_namespace
-AND pl_title = page_title
+LEFT JOIN mw_page ON (pl_namespace = page_namespace AND pl_title = page_title)
 WHERE page_namespace IS NULL 
 GROUP BY pl_namespace
 	*/	
 	$res = $dbr->select(
 		array('pagelinks', 'page'),
-		array( 'ns' => 'pl_namespace', 'count'=>'COUNT(*)' ),
+		array( 'namespace' => 'pl_namespace', 'count'=>'COUNT(*)' ),
 		'page_namespace IS NULL',
 		__METHOD__,
 		array( 'GROUP BY' => 'pl_namespace' ),
@@ -40,13 +39,11 @@ GROUP BY pl_namespace
 			)
 		)
 	);
-	$out = array();
-	foreach( $res as $row )
-	{
-		$out[$row->ns] = $row->count;
-	}
 
-	$ret = $out[0];
+	foreach( $res as $row )
+		if ($row->namespace == 0)
+			$ret = $row->count;
+
 	return true;
 }
  
